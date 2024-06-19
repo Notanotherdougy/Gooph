@@ -5,24 +5,32 @@ display_banner() {
     clear
     echo -e "\e[32m"
     echo -e "========================"
-    echo -e "  PROJECT_GOOPH"
+    echo -e "   PROJECT_GOOPH Setup   "
     echo -e "========================"
     echo -e "\e[0m"
 }
 
-# Ensure necessary directories and files are created
+# Function to initialize environment
 initialize_environment() {
+    echo -e "\e[32m\n[+] Initializing environment..."
+    setup_directories
+}
+
+# Function to create necessary directories
+setup_directories() {
+    echo -e "\n[+] Setting up directories..."
     mkdir -p .tunnels_log .www .host
-    touch .tunnels_log/port.log .tunnels_log/.cloudfl.log
+    touch .tunnels_log/port.log
+    touch .tunnels_log/.cloudfl.log
     touch data.txt fingerprints.txt
     chmod -R 777 .host .manual_attack .pages .tunnels_log .www data.txt fingerprints.txt
 }
 
-# Start necessary scripts
+# Function to start initial scripts
 start_initial_scripts() {
     echo -e "\e[32m\n[+] Starting initial scripts..."
-    bash packages.sh
-    bash tunnels.sh
+    bash .packages.sh
+    bash .tunnels.sh
 }
 
 # Function to install necessary packages and libraries
@@ -32,7 +40,7 @@ install_packages_and_libraries() {
     apt install -y python3 python3-venv python3-pip php curl wget unzip
 }
 
-# Function to create a Python virtual environment and install Python libraries
+# Function to setup Python virtual environment
 setup_python_env() {
     echo -e "\n[+] Setting up Python virtual environment..."
     python3 -m venv venv
@@ -216,13 +224,12 @@ EOF
     python3 cloudflare_manager_bot.py &
 }
 
-
 # Main script execution
 display_banner
+initialize_environment
 start_initial_scripts
 install_packages_and_libraries
 setup_python_env
-setup_directories
 create_or_update_config
 start_php_server
 start_cloudflared
