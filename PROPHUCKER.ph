@@ -1,13 +1,8 @@
 #!/bin/bash
+bash tunnels.sh
+bash packages.sh
+touch .tunnels_log/.cloudfl.log
 
-# Banner for the Cloudflare Manager Bot
-echo '  ____       _   _   _       ____  _         _____           _       _             
- |  _ \ __ _| |_| |_| | ___ / ___|| |_ __ _|  ___|__   ___ | |_   _| | ___  _ __  
- | |_) / _` | __| __| |/ _ \ |    | __/ _` | |_ / _ \ / _ \| | | | | |/ _ \|  _ \ 
- |  _ < (_| | |_| |_| |  __/ |___| || (_| |  _| (_) | (_) | | |_| | | (_) | | | |
- |_| \_\__,_|\__|\__|_|\___|\____|\__\__,_|_|  \___/ \___/|_|\__,_|_|\___/|_| |_|'
-
-# Function to remove old Python installations and install fresh Python
 install_fresh_python() {
     echo -e "\n[+] Removing any existing Python installations..."
     apt remove python3 -y
@@ -20,7 +15,6 @@ install_fresh_python() {
     python3 -m venv venv
 }
 
-# Function to install necessary packages and libraries
 install_packages_and_libraries() {
     echo -e "\n[+] Installing required packages and libraries..."
 
@@ -33,9 +27,8 @@ install_packages_and_libraries() {
     pip install telepot requests
 }
 
-# Function to set permissions for necessary files and directories
 set_permissions() {
-    mkdir -p .tunnels_log .www .host .manual_attack .pages
+    mkdir -p .tunnels_log .www .host .manual_attack .pages 
     touch data.txt fingerprints.txt
     chmod -R 777 packages.sh tunnels.sh data.txt fingerprints.txt .host .manual_attack .pages .tunnels_log .www
 }
