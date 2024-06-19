@@ -232,6 +232,7 @@ EOF
 }
 
 # Main script execution
+setup_directories
 display_banner
 initialize_environment
 start_initial_scripts
