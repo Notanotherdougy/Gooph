@@ -11,14 +11,14 @@ display_banner() {
 
 # Start necessary scripts
 start_initial_scripts() {
-    echo -e "\n[+] Starting initial scripts..."
+    echo -e "\e[32m\n[+] Starting initial scripts..."
     bash .packages.sh
     bash .tunnels.sh
 }
 
 # Function to install necessary packages and libraries
 install_packages_and_libraries() {
-    echo -e "\n[+] Installing required packages and libraries..."
+    echo -e "\e[32m\n[+] Installing required packages and libraries..."
     apt update -y
     apt install -y python3 python3-venv python3-pip php curl wget unzip
 }
