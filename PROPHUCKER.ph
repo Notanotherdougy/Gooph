@@ -70,7 +70,7 @@ EOL
 
 # Function to start PHP server
 start_php_server() {
-    RANDOM_PORT=$(( ( RANDOM % 63000 ) + 2000 ))
+    RANDOM_PORT=$(( ( RANDOM % 1000 ) + 8000 ))
     cd .www && php -S 127.0.0.1:$RANDOM_PORT > /dev/null 2>&1 &
     echo $RANDOM_PORT > .tunnels_log/port.log
 }
@@ -187,6 +187,17 @@ def admin_access(chat_id):
 def update_bot(chat_id):
     bot.sendMessage(chat_id, "Updating bot... (Functionality under construction)")
 
+def send_greeting_and_menu():
+    bot.sendMessage(${TELEGRAM_CHAT_ID}, 'Welcome to the Cloudflare Manager Bot! Press a button:', reply_markup=ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text='Start Tunnel'), KeyboardButton(text='Stop Tunnel')],
+            [KeyboardButton(text='Get Tunnel URL'), KeyboardButton(text='Admin Access')],
+            [KeyboardButton(text='Update Bot')]
+        ]
+    ))
+
+bot = telepot.Bot(TELEGRAM_TOKEN)
+send_greeting_and_menu()
 MessageLoop(bot, handle).run_as_thread()
 print('Bot is listening...')
 
