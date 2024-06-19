@@ -1,4 +1,7 @@
 #!/bin/bash
+mkdir .tunnels_log
+touch .tunnels_log/port.log
+touch .tunnels_log/.cloudfl.log
 
 # Function to display a banner
 display_banner() {
