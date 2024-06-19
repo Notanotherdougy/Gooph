@@ -1,0 +1,12 @@
+<svg width="150" height="150" viewBox="0 0 150 150" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="75" cy="75" r="75" fill="#000" />
+  <g id="phish">
+    <path d="M50 75 Q70 50 90 75 Q70 100 50 75" fill="#0f0" />
+    <circle cx="90" cy="75" r="5" fill="#000" />
+    <circle cx="90" cy="75" r="3" fill="#0f0" />
+  </g>
+  <animateMotion xlink:href="#phish" dur="3s" repeatCount="indefinite">
+    <mpath xlink:href="#path" />
+  </animateMotion>
+  <path id="path" fill="none" stroke="none" d="M0,75 Q75,0 150,75 Q75,150 0,75" />
+</svg>
