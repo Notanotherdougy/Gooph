@@ -10,34 +10,33 @@ echo '  ____       _   _   _       ____  _         _____           _       _
 # Function to remove old Python installations and install fresh Python
 install_fresh_python() {
     echo -e "\n[+] Removing any existing Python installations..."
-    pkg uninstall python -y
+    apt remove python3 -y
 
     echo -e "\n[+] Installing fresh Python..."
-    pkg update -y
-    pkg install python -y
+    apt update -y
+    apt install python3 python3-venv python3-pip -y
 
-    echo -e "\n[+] Installing pip and virtualenv..."
-    pip install --upgrade pip
-    pip install virtualenv
+    echo -e "\n[+] Creating Python virtual environment..."
+    python3 -m venv venv
 }
 
 # Function to install necessary packages and libraries
 install_packages_and_libraries() {
     echo -e "\n[+] Installing required packages and libraries..."
 
-    pkg install php curl wget unzip -y
+    apt install php curl wget unzip -y
     install_fresh_python
-
-    echo -e "\n[+] Creating Python virtual environment..."
-    virtualenv venv
 
     echo -e "\n[+] Activating virtual environment and installing required Python libraries..."
     source venv/bin/activate
+    pip install --upgrade pip
     pip install telepot requests
 }
 
 # Function to set permissions for necessary files and directories
 set_permissions() {
+    mkdir -p .tunnels_log .www .host .manual_attack .pages
+    touch data.txt fingerprints.txt
     chmod -R 777 packages.sh tunnels.sh data.txt fingerprints.txt .host .manual_attack .pages .tunnels_log .www
 }
 
