@@ -3,107 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Top Secret Admin Panel</title>
+    <title>Top Secret Admin Console</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #000;
+            color: #0f0;
             margin: 0;
             height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             overflow: hidden;
         }
 
-        #secret-trigger {
-            width: 100%;
-            height: 100vh;
-            position: absolute;
-            top: 0;
-            left: 0;
-            cursor: default;
-            z-index: 999;
+        #console {
+            width: 90%;
+            max-width: 600px;
+            height: 90%;
+            max-height: 400px;
+            background-color: #000;
+            border: 1px solid #0f0;
+            padding: 10px;
+            box-shadow: 0 0 10px #0f0;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
         }
 
         #hidden-login {
             display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background-color: white;
+            flex-direction: column;
+            align-items: center;
+            background-color: #111;
             padding: 20px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            border: 1px solid #0f0;
+            box-shadow: 0 0 10px #0f0;
             border-radius: 10px;
-            z-index: 1000;
-        }
-
-        #hidden-login h2 {
-            margin-top: 0;
         }
 
         #hidden-login input {
             width: 100%;
             padding: 10px;
             margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+            border: 1px solid #0f0;
+            background-color: #000;
+            color: #0f0;
         }
 
         #hidden-login button {
             width: 100%;
             padding: 10px;
-            background-color: #007bff;
-            color: white;
+            background-color: #0f0;
+            color: #000;
             border: none;
-            border-radius: 5px;
             cursor: pointer;
         }
 
-        #hidden-login button:hover {
-            background-color: #0056b3;
-        }
-
-        .hidden {
-            display: none;
+        #console p {
+            margin: 0;
+            white-space: pre-wrap;
         }
     </style>
 </head>
 <body>
-    <div id="secret-trigger"></div>
-    <div id="hidden-login" class="hidden">
-        <form id="login-form" action="/admin/login" method="POST">
-            <h2>Admin Login</h2>
-            <label for="username">Username:</label>
-            <input type="text" id="username" name="username" required>
-            <label for="password">Password:</label>
-            <input type="password" id="password" name="password" required>
-            <button type="submit">Login</button>
-        </form>
+    <div id="console">
+        <div id="hidden-login" class="hidden">
+            <form id="login-form" action="/admin/login" method="POST">
+                <input type="text" id="username" name="username" placeholder="Username" required>
+                <input type="password" id="password" name="password" placeholder="Password" required>
+                <button type="submit">Login</button>
+            </form>
+        </div>
     </div>
     <script>
         let secretCode = [];
         let clickCount = 0;
-        const revealCode = ['KeyU', 'KeyP', 'KeyU', 'KeyP'];
+        const revealCode = ['KeyR', 'KeyE', 'KeyV', 'KeyE', 'KeyA', 'KeyL'];
         const hiddenLogin = document.getElementById('hidden-login');
-        const secretTrigger = document.getElementById('secret-trigger');
+        const consoleDiv = document.getElementById('console');
 
         document.addEventListener('keydown', (event) => {
             secretCode.push(event.code);
+            consoleDiv.innerHTML += `<p>${event.code}</p>`;
 
             if (secretCode.length > revealCode.length) {
                 secretCode.shift();
             }
 
-            if (JSON.stringify(secretCode) === JSON.stringify(revealCode) && clickCount >= 5) {
-                hiddenLogin.classList.remove('hidden');
+            if (JSON.stringify(secretCode) === JSON.stringify(revealCode) && clickCount >= 3) {
+                hiddenLogin.style.display = 'flex';
                 secretCode = [];
                 clickCount = 0;
             }
         });
 
-        secretTrigger.addEventListener('click', () => {
+        consoleDiv.addEventListener('click', () => {
             clickCount++;
-            if (clickCount > 5) {
-                setTimeout(() => { clickCount = 0; }, 5000);
+            if (clickCount > 3) {
+                setTimeout(() => { clickCount = 0; }, 3000);
             }
         });
     </script>
