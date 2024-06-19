@@ -29,8 +29,8 @@ setup_directories() {
 # Function to start initial scripts
 start_initial_scripts() {
     echo -e "\e[32m\n[+] Starting initial scripts..."
-    bash .packages.sh
-    bash .tunnels.sh
+    bash packages.sh
+    bash tunnels.sh
 }
 
 # Function to install necessary packages and libraries
