@@ -45,7 +45,6 @@ install_packages() {
 }
 
 setup_clone_and_start_server() {
-    mkdir -p .www  # Ensure .www directory exists
     cd .www && php -S 127.0.0.1:8080 > /dev/null 2>&1 &
 }
 
@@ -79,8 +78,20 @@ start_cloudflared() {
     fi
 
     sleep 12
+
+    mkdir -p .tunnels_log
+
+    touch .tunnels_log/.cloudfl.log
+
     cldflr_url=$(grep -o 'https://[-0-9a-z]*\.trycloudflare.com' .tunnels_log/.cloudfl.log)
-    echo -e "\nCloudflared URL: ${cldflr_url}"
+
+    if [[ -f .www/config.ini ]]; then
+        TELEGRAM_TOKEN=$(grep 'token' .www/config.ini | cut -d '=' -f 2)
+        TELEGRAM_CHAT_ID=$(grep 'chat_id' .www/config.ini | cut -d '=' -f 2)
+        curl -s -X POST https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage -d text="Cloudflared URL: ${cldflr_url}" -d chat_id=${TELEGRAM_CHAT_ID} > /dev/null
+    else
+        echo "config.ini not found in .www folder. Cannot send URL to Telegram."
+    fi
 }
 
 install_packages
