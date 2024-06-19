@@ -5,7 +5,6 @@ display_banner() {
     clear
     echo -e "\e[32m"
     echo -e "========================"
-    echo -e "     PROJECT GOOPH
     echo -e "========================"
     echo -e "\e[0m"
 }
